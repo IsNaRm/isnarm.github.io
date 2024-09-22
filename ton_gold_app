@@ -1,0 +1,237 @@
+import { Assets, Sprite } from "pixi.js";
+import Assetsmanifest from "./config/assetsManifest";
+console.log("Assetsmanifest", Assetsmanifest);
+import IndexedDBHandler from "./indexedDB.js";
+import { gameLoading } from "./loading";
+import { gameDisablePc } from "./disablePc.js";
+import store from "@/store";
+import WebApp from "@twa-dev/sdk";
+import loadConfig from "@tonWalletConfig/config";
+import vconsole from "vconsole";
+// const assetsManifest = {
+//   bundles: [...Assetsmanifest.assets],
+// };
+let dbHandler = null;
+let loading = null;
+let loginTime = 0;
+
+// 禁用页面上的所有触摸滚动
+function preventDefault(e) {
+  e.preventDefault();
+}
+
+function disableTouchEvents() {
+  document.addEventListener("touchmove", preventDefault, { passive: false });
+  // document.addEventListener("touchstart", preventDefault, { passive: false });
+  // document.addEventListener("touchend", preventDefault, { passive: false });
+  document.addEventListener("touchcancel", preventDefault, { passive: false });
+  document.addEventListener("wheel", preventDefault, { passive: false });
+  // window.addEventListener(
+  //   "scroll",
+  //   function (event) {
+  //     event.preventDefault();
+  //     window.scrollTo(0, 0);
+  //   },
+  //   { passive: false }
+  // );
+}
+
+// 保持窗口全屏
+function keepFullScreen() {
+  WebApp.expand();
+  document.body.style.height = window.innerHeight + "px";
+  document.body.style.width = window.innerWidth + "px";
+  // document.getElementById("app").style.height = window.innerHeight + "px";
+  // document.getElementById("app").style.width = window.innerWidth + "px";
+}
+
+export default {
+  m_getLoginAccountInfo: async (app) => {
+    return new Promise(async (resolve, reject) => {
+      if (location.search == "?debug=gm202407131515") {
+        new vconsole();
+      }
+      if (!loadConfig.debug && location.search != "?debug=gm202407131515") {
+        let sUserAgent = navigator.userAgent.toLowerCase();
+        let isMobile = true;
+        console.log("isMobile", isMobile);
+        const disablePc = await gameDisablePc(app);
+        if (!isMobile) {
+          disablePc.render();
+          disablePc.changeInfo("This game only runs on mobile\n Telegram mini-programs.");
+          return;
+        } else {
+          disablePc.destroy();
+        }
+      }
+      loading = await gameLoading(app);
+      loading.render();
+      loading.update(0);
+      if (loadConfig.isMaintenance) {
+        loading.error("Game is currently under maintenance");
+        return;
+      }
+      let initData = _v.WebApp.initData;
+      let startParam = _v.WebApp.initDataUnsafe.start_param
+      // initData = "query_id=AAHB_LYJAwAAAMH8tglu7_2g&user=%7B%22id%22%3A6605438145%2C%22first_name%22%3A%22wjm123%22%2C%22last_name%22%3A%22%22%2C%22username%22%3A%22wjm12345%22%2C%22language_code%22%3A%22zh-hans%22%2C%22allows_write_to_pm%22%3Atrue%7D&auth_date=1721127829&hash=077a3058ff64ddb63ad5818e4bae1fa2babbfe42369420ed984598620e638dec";
+      if (!initData) {
+        loading.error("Can only be opened in the Telegram mini-program.");
+        return;
+      }
+      loading.changeInfo("Get login information...");
+      const login = await store.dispatch("user/getLoginInfo", [initData, startParam]);
+      if (!login) {
+        loading.error(`Login Failed!`);
+        return;
+      }
+      let version = login?.data?.game?.version;
+      loading.updateVersion(version);
+      dbHandler = await new IndexedDBHandler();
+      // if (!localStorage.getItem("version") || version != localStorage.getItem("version")) {
+      //   //版本不对时删除数据库
+      //   await dbHandler.removeAsset();
+      // }
+      version && localStorage.setItem("version", version);
+      loading.update(185);
+      loading.changeInfo("Get account information...");
+      const accountInfo = await store.dispatch("user/getAccountInfo");
+      if (!accountInfo) {
+        loading.error(`Account Retrieval Failed!`);
+        reject(1);
+        return;
+      }
+      loading.update(185);
+      resolve(1);
+    });
+  },
+  m_setMusic: () => {
+    window["isBgm"] = null
+    window["isEffect"] = null
+    const isBgm = localStorage.getItem("isBgm");
+    const isEffect = localStorage.getItem("isEffect");
+    if (!isBgm) {
+      localStorage.setItem("isBgm", "yes");
+      _v.music_bgm(1);
+      window["isBgm"] = true;
+    } else {
+      if (isBgm === "yes") {
+        _v.music_bgm(1);
+        window["isBgm"] = true;
+      }else {
+        window["isBgm"] = false
+      }
+    }
+
+    if (!isEffect) {
+      localStorage.setItem("isEffect", "yes");
+      _v.music_effect(0);
+      window["isEffect"] = true
+    } else {
+      if (isEffect === "yes") {
+        _v.music_effect(0);
+        window["isEffect"] = true
+      }else {
+        window["isEffect"] = false
+        _v.music_effect(0);
+      }
+    }
+   
+  },
+  m_setAssets: async (app) => {
+    await _v.m_getLoginAccountInfo(app);
+    _v.m_setMusic();
+    await _v.m_loadSprite();
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_1", 10, "idle");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_2", 10, "idle");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_3", 10, "idle");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_4", 10, "idle");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_1", 15, "work");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_2", 15, "work");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_3", 15, "work");
+    await _v.m_loadMinerAnimal("/assets/animation", "chaigong_4", 15, "work");
+    await _v.m_loadFramesAnimal("/assets/car/", "car", 15);
+    await _v.m_loadSpritesheet("/assets/spriteSheet/", ["element", "base", "diamond", "coin"]);
+    loading.changeInfo("Loading pages, please wait...");
+    
+    disableTouchEvents();
+    // 初始化时调用
+    keepFullScreen();
+    // 在窗口大小变化时保持全屏
+    window.addEventListener("resize", keepFullScreen);
+  },
+  //初始化资源
+  m_initAssets: async (app) => {
+    // await Assets.init({ manifest: assetsManifest });
+    await _v.m_setAssets(app);
+    // const allBundles = assetsManifest.bundles.map((item) => item.name);
+    // Assets.backgroundLoadBundle(allBundles);
+
+    console.log("end init assets");
+  },
+  m_loadSprite: async () => {
+    const arr = Assetsmanifest.assets[0].assets;
+    await Promise.all(
+      arr.map(async (item) => {
+        await dbHandler.loadAndCacheAsset(item.name, item.src, loading.update.bind(loading));
+      })
+    );
+  },
+  //骨骼动画
+  m_loadSpine: async (name, urls) => {
+    Assets.addBundle(name, urls);
+    await Assets.loadBundle(name);
+  },
+  //雪碧图
+  m_loadSpritesheet: async (url, sheetList) => {
+    const spritesheetListUrl = url; //默认精灵表文件路径 默认在/assets/spriteSheet
+    const spritesheetList = sheetList; //精灵表名称 goldMine.json goldMine.png
+    if (typeof spritesheetList === "string") {
+      await dbHandler.loadAndCacheSpritesheet(spritesheetList, `${spritesheetListUrl}${spritesheetList}.json`, `${spritesheetListUrl}${spritesheetList}.png`);
+    } else if (spritesheetList instanceof Array) {
+      await processSpriteSheets(spritesheetList);
+    } else {
+      console.error("The resource name is not passed in according to the data format, only array and string formats are supported.");
+    }
+    async function processSpriteSheets(spritesheetList) {
+      await Promise.all(
+        spritesheetList.map(async (name) => {
+          return new Promise(async (resolve) => {
+            await dbHandler.loadAndCacheSpritesheet(name, `${spritesheetListUrl}${name}.json`, `${spritesheetListUrl}${name}.png`, loading.update.bind(loading));
+            resolve();
+          });
+        })
+      );
+    }
+  },
+  //序列图
+  m_loadFramesAnimal: async (url, name, total) => {
+    const arr = new Array(total).fill("");
+    await Promise.all(
+      arr.map(async (_, idx) => {
+        // Assets.add({ alias: `${name}${idx}`, src: `/assets/${name}/${idx}.png` });
+        // await Assets.load(`${name}${idx}`);
+        await dbHandler.loadAndCacheAsset(`${name}${idx}`, `/assets/${name}/${idx}.png`, loading.update.bind(loading));
+      })
+    );
+    let frame = [];
+    for (let i = 0; i < 15; i++) {
+      frame.push(Assets.cache.get(`${name}${i}`));
+    }
+    _v[`a_${name}Anim`] = frame;
+  },
+  m_loadMinerAnimal: async (url, name, total, state) => {
+    const arr = new Array(total + 1).fill("");
+    await Promise.all(
+      arr.map(async (_, idx) => {
+        // Assets.add({ alias: `${name}-${state}_${idx < 10 ? "0" + idx : idx}`, src: `/assets/animation/${name}-${state}_${idx < 10 ? "0" + idx : idx}.png` });
+        // await Assets.load(`${name}-${state}_${idx < 10 ? "0" + idx : idx}`);
+        await dbHandler.loadAndCacheAsset(`${name}-${state}_${idx < 10 ? "0" + idx : idx}`, `/assets/animation/${name}-${state}_${idx < 10 ? "0" + idx : idx}.png`, loading.update.bind(loading));
+      })
+    );
+    let frame = [];
+    for (let i = 0; i <= total; i++) {
+      frame.push(Assets.cache.get(`${name}-${state}_${i < 10 ? "0" + i : i}`));
+    }
+    _v[`${name}-${state}`] = frame;
+  },
+};
