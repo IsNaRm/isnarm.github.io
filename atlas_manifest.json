@@ -378,8 +378,8 @@
         "url": "/0x72_DungeonTilesetII_v1.7/frames/atlas/wizzard_m_idle_anim.png"
     },
     "0x72/wizzard_m_run_anim": {
-        "frame_h": 28,
-        "frame_w": 16,
+        "frame_h": 256,
+        "frame_w": 384,
         "frames": 16,
         "url": "/0x72_DungeonTilesetII_v1.7/frames/atlas/wizzard_m_run_anim.png"
     },
